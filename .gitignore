@@ -1,9 +1,7 @@
 output/
 
-# Downloaded assets — too large, instructions in README
 assets/objects/
-assets/cc_textures/
-assets/haven/
+assets/textures/
 
 # Python
 __pycache__/

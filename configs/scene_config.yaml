@@ -1,42 +1,43 @@
 paths:
   objects_dir:     "assets/objects"
-  cc_textures_dir: "assets/cc_textures"
-  haven_dir:       "assets/haven"
+  textures_dir: "assets/textures"
   output_hdf5_dir: "output/hdf5"
   output_bop_dir:  "output/bop"
 
 dataset:
-  num_scenes:            3        # keep low for local testing, 1000+ for actual dataset
+  num_scenes:            5        # keep low for local testing, 1000+ for actual dataset
   objects_per_scene_min: 5
-  objects_per_scene_max: 6
+  objects_per_scene_max: 10
 
 objects:
   pool:
+    - "002_master_chef_can"
+    - "003_cracker_box"
+    - "004_sugar_box"
     - "006_mustard_bottle"
+    - "017_orange"
+    - "021_bleach_cleanser"
+    - "024_bowl"
     - "025_mug"
     - "035_power_drill"
-    - "002_master_chef_can"
-    - "004_sugar_box"
     - "051_large_clamp"
-    - "016_pear"
-    - "021_bleach_cleanser"
 
 render:
-  image_width:      640
-  image_height:     480
-  focal_length_mm:  35
-  noise_threshold:  0.05     # 0.01-0.02 for better quality renders
-  max_samples:      64       # 128-256 for better quality renders
-  use_gpu:          false    # set true for better quality renders
-  denoiser:         "INTEL"
+  image_width:       640
+  image_height:      480
+  focal_length_mm:   35
+  noise_threshold:   0.05     # 0.01-0.02 for better quality renders
+  max_samples:       64       # 128-256 for better quality renders
+  use_only_cpu:      True
+  denoiser:          "INTEL"
 
 camera:
-  dist_min:              0.5
-  dist_max:              1.5
-  height_min:            0.3
-  height_max:            1.2
-  inplane_rot_range:     0.3
-  max_sampling_attempts: 50
+  dist_min:              0.4
+  dist_max:              1.8
+  height_min:            0.5
+  height_max:            0.65
+  inplane_rot_range:     0.1
+  max_sampling_attempts: 200
 
 physics:
   min_simulation_time:   2
@@ -44,10 +45,12 @@ physics:
   check_object_interval: 1
 
 object_placement:
-  drop_x_range:        [-0.4, 0.4]
-  drop_y_range:        [-0.3, 0.3]
-  drop_z_min:          0.2
-  drop_z_max:          0.5
+  drop_x_min: -0.3
+  drop_x_max:  0.3
+  drop_y_min: -0.2
+  drop_y_max:  0.2
+  drop_z_min:  0.3
+  drop_z_max:  0.6
   upright_probability: 0.6
 
 lighting:
