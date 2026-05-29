@@ -12,8 +12,9 @@ logger = get_logger(__name__)
 def setup_renderer(cfg: dict) -> None:
     """
     Configure camera intrinsics and renderer settings.
-    Called once per session after objects are loaded (calling before causes blank normals).
-    Camera K matrix stays fixed so BOP scene_camera.json is consistent across scenes.
+    Must be called after objects are loaded into the scene, not before.
+    Calling before any mesh exists causes blank normal maps (all 0.5 values).
+    Camera K matrix is fixed for the whole dataset so BOP scene_camera.json stays consistent.
     """
     r = cfg["render"]
 
@@ -27,21 +28,20 @@ def setup_renderer(cfg: dict) -> None:
     bproc.renderer.set_noise_threshold(r["noise_threshold"])
     bproc.renderer.set_max_amount_of_samples(r["max_samples"])
     bproc.renderer.set_denoiser(r["denoiser"])
-
     bproc.renderer.enable_depth_output(activate_antialiasing=False)
     bproc.renderer.enable_normals_output()
 
     logger.info(f"Renderer: {r['image_width']}x{r['image_height']} (GPU: {not r['use_only_cpu']})")
 
 
-def _apply_polyhaven_material(obj, texture_folder: str, material_name: str, append: bool = False):
+def _apply_material(obj, texture_folder: str, material_name: str, append: bool = False):
     """
-    Apply a Poly Haven PBR material (diffuse + roughness maps).
-    append=True adds as a second material slot instead of replacing.
-    Used internally by build_room().
+    Apply a Poly Haven PBR material using diffuse and roughness maps.
+    Set append=True to add as a second material slot instead of replacing the existing one.
+    Roughness maps must be loaded as Non-Color to avoid incorrect gamma correction.
     """
-    files = os.listdir(texture_folder)
-    diff_file  = next((f for f in files if "diff"  in f.lower()), None)
+    files      = os.listdir(texture_folder)
+    diff_file  = next((f for f in files if "diff" in f.lower()), None)
     rough_file = next((f for f in files if "rough" in f.lower()), None)
 
     mat = bproc.material.create(material_name)
@@ -67,66 +67,61 @@ def _apply_polyhaven_material(obj, texture_folder: str, material_name: str, appe
     return mat
 
 
-def build_room(cfg: dict) -> list:
+def build_room(cfg: dict) -> tuple:
     """
-    Build a simple lab room: wood table + inverted cube acting as walls/floor/ceiling.
-    Wall and floor get different PBR materials via polygon normal detection.
-    All objects returned for cleanup at end of scene.
+    Build a lab room with a wood table and an inverted cube acting as walls, floor and ceiling.
+    Wall and floor textures are randomized per scene from the pools defined in scene_config.yaml.
+    Room uses MESH collision so objects cannot fall through the floor or walls.
+    Returns (room_objs, table). Table is returned separately so randomizer can perturb its material.
     """
-    room_objs = []
-
-    # Table, a flat cube, objects land on its top face (Z=0)
+    room_cfg     = cfg["room"]
+    textures_dir = cfg["paths"]["textures_dir"]
+    room_objs    = []
+ 
+    # Table: flat cube, objects land on its top face at Z=0
     table = bproc.object.create_primitive("CUBE")
     table.set_scale([0.8, 0.6, 0.04])
     table.set_location([0, 0, -0.04])
-    _apply_polyhaven_material(
-        obj=table,
-        texture_folder="assets/textures/wood_cabinet_worn_long_1k.gltf/textures",
-        material_name="wood_table"
-    )
+    table_texture = os.path.join(textures_dir, random.choice(room_cfg["table_textures"]))
+    _apply_material(table, table_texture, "wood_table")
     table.enable_rigidbody(active=False, collision_shape="BOX")
     room_objs.append(table)
-
-    # Room, a large cube with flipped normals so inside faces are visible to camera
+ 
+    # Room: large cube with flipped normals so inside faces are visible to camera
     room = bproc.object.create_primitive("CUBE")
     room.set_scale([3, 3, 2])
     room.set_location([0, 0, 1.5])
-
-    # Flip normals so inside faces are visible
-    bpy.ops.object.select_all(action='DESELECT')
+ 
+    bpy.ops.object.select_all(action="DESELECT")
     room.blender_obj.select_set(True)
     bpy.context.view_layer.objects.active = room.blender_obj
-    bpy.ops.object.mode_set(mode='EDIT')
+    bpy.ops.object.mode_set(mode="EDIT")
     bpy.ops.mesh.flip_normals()
-    bpy.ops.object.mode_set(mode='OBJECT')
-
-    # Slot 0: walls, Slot 1: floor
-    _apply_polyhaven_material(
-        obj=room,
-        texture_folder="assets/textures/concrete_wall_006_1k.gltf/textures",
-        material_name="wall_mat",
-        append=False
-    )
-    
-    _apply_polyhaven_material(
-        obj=room,
-        texture_folder="assets/textures/concrete_wall_001_1k.gltf/textures",
-        material_name="floor_mat",
-        append=True
-    )
-
-    # Assign floor material to horizontal faces only
+    bpy.ops.object.mode_set(mode="OBJECT")
+ 
+    wall_texture  = os.path.join(textures_dir, random.choice(room_cfg["wall_textures"]))
+    floor_texture = os.path.join(textures_dir, random.choice(room_cfg["floor_textures"]))
+ 
+    # Slot 0: walls, Slot 1: floor (assigned per polygon below)
+    _apply_material(room, wall_texture,  "wall_mat",  append=False)
+    _apply_material(room, floor_texture, "floor_mat", append=True)
+ 
+    # Assign floor material to horizontal faces, wall material to vertical faces
     for poly in room.blender_obj.data.polygons:
         poly.material_index = 1 if abs(poly.normal.z) > 0.9 else 0
  
+    # MESH collision traces actual polygon faces so objects cannot escape through walls or floor
+    room.enable_rigidbody(active=False, collision_shape="MESH")
     room_objs.append(room)
-    return room_objs
+ 
+    return room_objs, table
 
 
 def load_scene_objects(cfg: dict, category_id_map: dict) -> list:
     """
-    Randomly pick 5-10 objects from pool, load into scene.
+    Randomly pick objects from the pool and load them into the scene.
     Returns list of (MeshObject, obj_name) tuples.
+    Skips objects whose .obj file cannot be found and logs a warning.
     """
     ds_cfg      = cfg["dataset"]
     objects_dir = cfg["paths"]["objects_dir"]
@@ -179,10 +174,10 @@ def setup_object_physics(loaded_objects: list, cfg: dict) -> None:
         )
 
 
-def run_physics(cfg: dict) -> None: 
+def run_physics(cfg: dict) -> None:
     """
-    Drop objects onto table. 
-    Simulation runs then poses are frozen for rendering.
+    Run rigid body simulation until objects settle on the table.
+    Poses are frozen after simulation. Simulation keyframes are discarded.
     """
     p = cfg["physics"]
     bproc.object.simulate_physics_and_fix_final_poses(
@@ -192,21 +187,11 @@ def run_physics(cfg: dict) -> None:
     )
 
 
-def add_basic_light(cfg):
-    """
-    Fixed point light
-    """
-    light = bproc.types.Light()
-    light.set_type("POINT")
-    light.set_location([1, -1, 3])
-    light.set_energy(500)
-    return light
-
-
 def sample_camera_pose(loaded_objects: list, cfg: dict):
     """
-    Sample camera on a sphere around scene POI with height constraints.
-    Falls back to a computed overhead position if sampling fails.
+    Sample a camera position on a sphere around the scene POI within height constraints.
+    POI is the centroid of all loaded objects so camera always looks toward the scene center.
+    Falls back to a safe overhead position if all sphere samples are rejected.
     """
     cam_cfg  = cfg["camera"]
     poi      = bproc.object.compute_poi([obj for obj, _ in loaded_objects])
@@ -218,7 +203,7 @@ def sample_camera_pose(loaded_objects: list, cfg: dict):
             mode="SURFACE"
         )
 
-        # Camera must be above table and not too high
+        # Reject positions below table level or too high (straight-down view)
         if not (cam_cfg["height_min"] <= location[2] <= cam_cfg["height_max"]):
             continue
 
@@ -231,10 +216,9 @@ def sample_camera_pose(loaded_objects: list, cfg: dict):
         )
         return bproc.math.build_transformation_mat(location, rotation)
 
-    # Fallback
     logger.warning("Camera sampling failed, using computed fallback")
     
     # Put camera directly above POI at safe height
-    fallback_loc = np.array([poi[0], poi[1] - 0.5, poi[2] + 0.8])
+    fallback_loc  = np.array([poi[0], poi[1] - 0.5, poi[2] + 0.8])
     fallback_rot  = bproc.camera.rotation_from_forward_vec(poi - fallback_loc)
     return bproc.math.build_transformation_mat(fallback_loc, fallback_rot)

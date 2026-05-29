@@ -2,10 +2,9 @@ import os
 import shutil
 import logging
 import yaml
-import blenderproc as bproc
 
 def get_logger(name: str) -> logging.Logger:
-    """Central logger"""
+    """Central logger used by all modules."""
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(message)s",
@@ -18,7 +17,7 @@ def load_config(config_path="configs/scene_config.yaml") -> dict:
     """Load YAML config and return as dict."""
     with open(config_path, "r") as f:
         cfg = yaml.safe_load(f)
-    print(f"Config loaded: {config_path}")
+    get_logger(__name__).info(f"Config loaded: {config_path}")
     return cfg
 
 

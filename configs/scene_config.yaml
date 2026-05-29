@@ -1,12 +1,13 @@
 paths:
   objects_dir:     "assets/objects"
-  textures_dir: "assets/textures"
+  textures_dir:    "assets/textures"
+  hdri_dir:        "assets/hdri"
   output_hdf5_dir: "output/hdf5"
   output_bop_dir:  "output/bop"
 
 dataset:
-  num_scenes:            5        # keep low for local testing, 1000+ for actual dataset
-  objects_per_scene_min: 5
+  num_scenes:            50        # keep low for local testing, 1000+ for actual dataset
+  objects_per_scene_min: 6
   objects_per_scene_max: 10
 
 objects:
@@ -26,17 +27,17 @@ render:
   image_width:       640
   image_height:      480
   focal_length_mm:   35
-  noise_threshold:   0.05     # 0.01-0.02 for better quality renders
-  max_samples:       64       # 128-256 for better quality renders
-  use_only_cpu:      True
+  noise_threshold:   0.01      # 0.01-0.02 for better quality renders
+  max_samples:       128       # 128-256 for better quality renders
+  use_only_cpu:      False
   denoiser:          "INTEL"
 
 camera:
-  dist_min:              0.4
-  dist_max:              1.8
-  height_min:            0.5
-  height_max:            0.65
-  inplane_rot_range:     0.1
+  dist_min:              0.6
+  dist_max:              1.5
+  height_min:            0.3
+  height_max:            0.8
+  inplane_rot_range:     0.2
   max_sampling_attempts: 200
 
 physics:
@@ -45,23 +46,44 @@ physics:
   check_object_interval: 1
 
 object_placement:
-  drop_x_min: -0.3
-  drop_x_max:  0.3
-  drop_y_min: -0.2
-  drop_y_max:  0.2
-  drop_z_min:  0.3
-  drop_z_max:  0.6
+  drop_x_min:         -0.3
+  drop_x_max:          0.3
+  drop_y_min:         -0.2
+  drop_y_max:          0.2
+  drop_z_min:          0.3
+  drop_z_max:          0.6
   upright_probability: 0.6
 
 lighting:
-  energy_min: 200
-  energy_max: 800
-  x_range:    [-2, 2]
-  y_range:    [-2, 2]
-  z_range:    [2, 4]
+  energy_min: 5
+  energy_max: 25
+  x_range:    [-1.5, 1.5]
+  y_range:    [-1.5, 1.5]
+  z_range:    [1.5, 3.0]
 
 room:
-  floor_scale: [3, 3, 1]
-  wall_scale:  [3, 2, 1]
-  table_scale: [1.0, 0.8, 1]
+  floor_scale:  [3, 3, 1]
+  wall_scale:   [3, 2, 1]
+  table_scale:  [1.0, 0.8, 1]
   table_height: 0.0
+  wall_textures:
+    - "brick_wall_10_1k.gltf/textures"
+    - "factory_brick_1k.gltf/textures"
+    - "concrete_wall_006_1k.gltf/textures"
+    - "old_stone_wall_1k.gltf/textures"
+    - "rock_wall_04_1k.gltf/textures"
+  floor_textures:
+    - "asphalt_02_1k.gltf/textures"
+    - "old_linoleum_flooring_01_1k.gltf/textures"
+    - "slate_floor_02_1k.gltf/textures"
+    - "square_tiles_02_1k.gltf/textures"
+    - "worn_tile_floor_1k.gltf/textures"
+  table_textures:
+    - "black_painted_planks_1k.gltf/textures" 
+    - "dark_wood_1k.gltf/textures"
+    - "wood_cabinet_worn_long_1k.gltf/textures"
+    - "fine_grained_wood_1k.gltf/textures"
+    - "wood_table_001_1k.gltf/textures"
+
+material_perturbation:
+  enabled: true
